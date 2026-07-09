@@ -1,114 +1,109 @@
-# OpenTelemetry Demo — Despliegue en Kubernetes
+# Online Boutique on Minikube
 
-Instrucciones para desplegar la aplicación de ejemplo de OpenTelemetry en un clúster Kubernetes existente usando Helm.
+This README adapts the official development guide from the Google Cloud Platform microservices demo so you can run an e-commerce sample application on a local Minikube cluster.
 
-## Prerrequisitos
+## What you will deploy
 
-- Kubernetes 1.24+
-- 6 GB de RAM libre para la aplicación
-- Helm 3.14+
+The repository contains Online Boutique, a sample e-commerce application composed of multiple microservices.
 
-## Instalación con Helm
+## Prerequisites
 
-Agregar el repositorio de Helm de OpenTelemetry:
+Make sure these tools are installed and available in your shell:
 
-```shell
-helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+- Docker or Docker Desktop
+- kubectl
+- skaffold 2.0.2 or newer
+- Minikube
+
+For Minikube, the guide recommends at least:
+
+- 4 CPUs
+- 4 GiB of memory
+- 32 GiB of disk space
+
+## 1. Clone the repository
+
+```sh
+git clone https://github.com/GoogleCloudPlatform/microservices-demo.git
+cd microservices-demo
 ```
 
-Instalar el chart con el nombre `my-otel-demo`:
+## 2. Start a local Minikube cluster
 
-```shell
-helm install my-otel-demo open-telemetry/opentelemetry-demo
+```sh
+minikube start --cpus=4 --memory=4096 --disk-size=32g
 ```
 
-> **Nota:** El chart no soporta actualizaciones entre versiones. Para actualizar, elimine el release existente e instale la nueva versión.
+Verify that the cluster is ready:
 
-### Generar manifiestos de Kubernetes
-
-```shell
-helm template opentelemetry-demo open-telemetry/opentelemetry-demo --namespace otel-demo > opentelemetry-demo.yaml
-kubectl apply -f opentelemetry-demo.yaml
+```sh
+kubectl get nodes
 ```
 
-## Usar la aplicación
+## 3. Deploy the application
 
-### Exponer servicios con `kubectl port-forward`
+Run the deployment with skaffold:
 
-```shell
-kubectl --namespace default port-forward svc/frontend-proxy 8080:8080
+```sh
+skaffold run
 ```
 
-Una vez establecido el port-forward, acceda a:
+This step may take a while on the first run because it builds and deploys the container images.
 
-| Servicio             | URL                                                   |
-| -------------------- | ----------------------------------------------------- |
-| Web store            | http://localhost:8080/                                 |
-| Grafana              | http://localhost:8080/grafana/                         |
-| Load Generator UI    | http://localhost:8080/loadgen/                         |
-| Jaeger UI            | http://localhost:8080/jaeger/ui/                       |
-| Flagd configurator   | http://localhost:8080/feature                          |
+If you want skaffold to rebuild automatically while you change the code, use:
 
-### Exponer con Ingress
-
-```yaml
-components:
-  frontend-proxy:
-    ingress:
-      enabled: true
-      annotations: {}
-      hosts:
-        - host: otel-demo.my-domain.com
-          paths:
-            - path: /
-              pathType: Prefix
-              port: 8080
+```sh
+skaffold dev
 ```
 
-### Exponer con LoadBalancer
+## 4. Check the deployed pods
 
-```yaml
-components:
-  frontend-proxy:
-    service:
-      type: LoadBalancer
+```sh
+kubectl get pods
 ```
 
-### Telemetría del navegador
+Wait until the pods are running and ready.
 
-```yaml
-components:
-  frontend:
-    envOverrides:
-      - name: PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-        value: http://otel-demo.my-domain.com/otlp-http/v1/traces
+## 5. Access the storefront
+
+Forward the frontend port locally:
+
+```sh
+kubectl port-forward deployment/frontend 8080:8080
 ```
 
-## Usar tu propio backend
+Then open:
 
-Cree un archivo `my-values-file.yaml` con sus exportadores:
-
-```yaml
-opentelemetry-collector:
-  config:
-    exporters:
-      otlphttp/example:
-        endpoint: <your-endpoint-url>
-    service:
-      pipelines:
-        traces:
-          exporters: [spanmetrics, otlphttp/example]
+```text
+http://localhost:8080
 ```
 
-Instale con valores personalizados:
+## Cleanup
 
-```shell
-helm install my-otel-demo open-telemetry/opentelemetry-demo --values my-values-file.yaml
+To remove the deployed resources:
+
+```sh
+skaffold delete
 ```
 
-> **Nota:** Al sobrescribir `exporters` en un pipeline, incluya siempre `spanmetrics` para evitar errores.
+To stop Minikube entirely:
 
-## Referencias
+```sh
+minikube stop
+```
 
-- [OpenTelemetry Demo Helm Chart](https://opentelemetry.io/docs/platforms/kubernetes/helm/demo/)
-- [Documentación oficial de Helm](https://helm.sh/docs/)
+## References
+
+- Official development guide: https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/docs/development-guide.md
+- Online Boutique repository: https://github.com/GoogleCloudPlatform/microservices-demo
+
+
+### How to sort the scripts in k6
+
+[Office Hours](https://www.youtube.com/watch?v=zDtEzp_JUOE)
+
+[repo](https://github.com/grafana/k6-example-woocommerce/blob/main/main.js)
+
+[Chai Checks](https://k6.io/blog/k6-chai-js/#stability)
+
+[Advanced Scenarios](https://k6.io/docs/using-k6/scenarios/advanced-examples/)
